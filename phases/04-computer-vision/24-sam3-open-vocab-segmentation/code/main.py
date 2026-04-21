@@ -42,6 +42,8 @@ def rle_encode(binary_mask):
 
 
 def rle_decode(rle_str, shape):
+    if not rle_str:
+        return np.zeros(shape, dtype=np.uint8)
     flat = np.zeros(int(np.prod(shape)), dtype=np.uint8)
     idx = 0
     for part in rle_str.split(";"):
