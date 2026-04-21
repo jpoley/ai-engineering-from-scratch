@@ -62,32 +62,40 @@ def profile(model, input_shape, device="cpu", warmup=10, iters=100):
     model = model.to(device).eval()
     x = torch.randn(input_shape, device=device)
 
+    def sync():
+        if device == "cuda":
+            torch.cuda.synchronize()
+        elif device == "mps":
+            torch.mps.synchronize()
+
     with torch.no_grad():
         for _ in range(warmup):
             model(x)
+        sync()
         if device == "cuda":
-            torch.cuda.synchronize()
             torch.cuda.reset_peak_memory_stats()
 
         times = []
         for _ in range(iters):
-            if device == "cuda":
-                torch.cuda.synchronize()
+            sync()
             t0 = time.perf_counter()
             model(x)
-            if device == "cuda":
-                torch.cuda.synchronize()
+            sync()
             times.append((time.perf_counter() - t0) * 1000)
 
     times.sort()
     mean = sum(times) / len(times)
     std  = (sum((t - mean) ** 2 for t in times) / len(times)) ** 0.5
 
+    def pct(p):
+        idx = max(0, min(len(times) - 1, int(len(times) * p) - 1))
+        return times[idx]
+
     report = {
-        "p50_ms":  times[len(times) // 2],
-        "p90_ms":  times[int(len(times) * 0.9)],
-        "p95_ms":  times[int(len(times) * 0.95)],
-        "p99_ms":  times[-1],
+        "p50_ms":  pct(0.50),
+        "p90_ms":  pct(0.90),
+        "p95_ms":  pct(0.95),
+        "p99_ms":  pct(0.99),
         "mean_ms": mean,
         "std_ms":  std,
         "rss_mb":  proc.memory_info().rss / 1e6 - baseline_rss,
