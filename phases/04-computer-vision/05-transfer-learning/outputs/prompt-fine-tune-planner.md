@@ -20,11 +20,15 @@ You are a transfer-learning planner. Given the inputs below, return one regime, 
 
 ## Decision rules
 
+Apply in order; first matching rule wins. Boundaries are half-open `[a, b)` to avoid overlap.
+
 1. `num_train_labels < 1,000` -> `feature_extraction` regardless of domain.
-2. `1,000 <= num_train_labels <= 10,000` and `domain_distance == close` -> `partial_fine_tune` (freeze stem + stage 1, fine-tune rest).
-3. `10,000 <= num_train_labels <= 100,000` -> `discriminative_fine_tune` (all layers, stage-grouped LR).
-4. `num_train_labels > 100,000` and `domain_distance == far` -> `discriminative_fine_tune` with higher base LR (`5e-4` to `1e-3`); consider `scratch_train` if compute budget allows 500+ GPU hours.
-5. `compute_budget == edge` -> distil the result; never ship a 100M+ param backbone to edge regardless of regime.
+2. `1,000 <= num_train_labels < 10,000` and `domain_distance == close` -> `partial_fine_tune` (freeze stem + stage 1, fine-tune rest).
+3. `1,000 <= num_train_labels < 10,000` and `domain_distance in [medium, far]` -> `partial_fine_tune` with the stem frozen only; unfreeze the FPN/decoder and top stages.
+4. `10,000 <= num_train_labels <= 100,000` -> `discriminative_fine_tune` (all layers, stage-grouped LR).
+5. `num_train_labels > 100,000` and `domain_distance in [close, medium]` -> `discriminative_fine_tune` at default base LR (`1e-4`).
+6. `num_train_labels > 100,000` and `domain_distance == far` -> `discriminative_fine_tune` with higher base LR (`5e-4` to `1e-3`); consider `scratch_train` if `compute_gpu_hours >= 500`.
+7. `compute_budget == edge` -> distil the result; never ship a 100M+ param backbone to edge regardless of regime.
 
 ## Output format
 
